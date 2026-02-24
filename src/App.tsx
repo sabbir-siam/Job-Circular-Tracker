@@ -17,7 +17,9 @@ import {
   Loader2,
   Clock,
   Building2,
-  FileText
+  FileText,
+  Mail,
+  CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { JobCircular, JobCategory } from './types';
@@ -29,7 +31,8 @@ const CATEGORIES: JobCategory[] = [
   'Transportation',
   'Ports',
   'Urban Development',
-  'Finance'
+  'Finance',
+  'Other'
 ];
 
 export default function App() {
@@ -39,6 +42,9 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [viewingJob, setViewingJob] = useState<JobCircular | null>(null);
+  const [email, setEmail] = useState('');
+  const [submittingEmail, setSubmittingEmail] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -46,10 +52,39 @@ export default function App() {
       const data = await fetchLatestCirculars();
       setCirculars(data);
       setLastUpdated(new Date().toLocaleTimeString());
+      
+      // Sync to backend for alerts
+      await fetch('/api/sync-circulars', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ circulars: data })
+      });
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setSubmittingEmail(true);
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (res.ok) {
+        setSubscribed(true);
+        setEmail('');
+        setTimeout(() => setSubscribed(false), 3000);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSubmittingEmail(false);
     }
   };
 
@@ -103,6 +138,41 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Email Alert Section */}
+        <div className="mb-8 bg-emerald-600 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden">
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="max-w-md">
+              <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                <Mail className="w-6 h-6" />
+                Get Email Alerts
+              </h2>
+              <p className="text-emerald-50 text-sm">
+                We'll notify you automatically 15 days before any job deadline so you never miss an opportunity.
+              </p>
+            </div>
+            <form onSubmit={handleSubscribe} className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
+              <input 
+                type="email"
+                placeholder="Enter your email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="px-6 py-3 bg-white/10 border border-white/20 rounded-2xl focus:outline-none focus:ring-2 focus:ring-white/50 placeholder:text-emerald-100 text-white min-w-[280px]"
+              />
+              <button 
+                type="submit"
+                disabled={submittingEmail || subscribed}
+                className="px-8 py-3 bg-white text-emerald-600 rounded-2xl font-bold hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+              >
+                {submittingEmail ? <Loader2 className="w-5 h-5 animate-spin" /> : 
+                 subscribed ? <CheckCircle2 className="w-5 h-5" /> : "Subscribe"}
+              </button>
+            </form>
+          </div>
+          {/* Decorative background element */}
+          <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+        </div>
+
         {/* Filters & Search */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-8">
           <div className="md:col-span-8 relative">
